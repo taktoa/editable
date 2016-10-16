@@ -1,15 +1,23 @@
-{-# LANGUAGE DefaultSignatures, FlexibleContexts, ScopedTypeVariables, TypeOperators, DeriveGeneric, FlexibleInstances, ScopedTypeVariables, OverloadedStrings, UndecidableInstances, OverlappingInstances #-}
+{-# LANGUAGE DefaultSignatures    #-}
+{-# LANGUAGE DeriveGeneric        #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE OverlappingInstances #-}
+{-# LANGUAGE OverloadedStrings    #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE TypeOperators        #-}
+{-# LANGUAGE UndecidableInstances #-}
 module Data.Editable (editor, Editable, Parseable(..)) where
 
-import GHC.Generics
-import Graphics.Vty.Widgets.All
-import qualified Data.Text as T
-import Graphics.Vty hiding (Button)
-import Control.Concurrent
-import Text.Read
-import Data.Monoid
-import Data.Typeable
-import Data.IORef
+import           Control.Concurrent
+import           Data.IORef
+import           Data.Monoid
+import qualified Data.Text                as T
+import           Data.Typeable
+import           GHC.Generics
+import           Graphics.Vty             hiding (Button)
+import           Graphics.Vty.Widgets.All
+import           Text.Read
 
 -- | A type is parseable if you can:
 --
