@@ -28,6 +28,6 @@ Setup
 ```bash
 cabal sandbox init
 cabal install --only-dependencies
-cabal exec ghci demo.hs
+cabal exec ghci examples/Demo.hs
 # main
 ```

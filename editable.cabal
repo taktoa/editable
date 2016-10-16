@@ -29,7 +29,7 @@ category:            Data
 build-type:          Simple
 homepage:            https://github.com/maxpow4h/editable
 bug-reports:         https://github.com/maxpow4h/editable/issues
-extra-source-files:  demo.hs
+extra-source-files:  examples/Demo.hs
 cabal-version:       >=1.10
 
 source-repository head
@@ -42,4 +42,5 @@ library
   build-depends:     base  >= 4.6 && < 5
                    , text  == 1.2.*
                    , brick == 0.11.*
+  hs-source-dirs:    src
   default-language:  Haskell2010
