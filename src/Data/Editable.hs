@@ -7,16 +7,16 @@
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeOperators        #-}
 {-# LANGUAGE UndecidableInstances #-}
-module Data.Editable (editor, Editable, Parseable(..)) where
+module Data.Editable (editor, Editable, Parseable (..)) where
 
 import           Control.Concurrent
-import           Data.IORef
+import           Control.Concurrent.MVar
 import           Data.Monoid
-import qualified Data.Text                as T
+import           Data.Text               (Text)
+import qualified Data.Text               as T
 import           Data.Typeable
 import           GHC.Generics
-import           Graphics.Vty             hiding (Button)
-import           Graphics.Vty.Widgets.All
+import qualified Graphics.Vty            as V
 import           Text.Read
 
 -- | A type is parseable if you can:
@@ -29,9 +29,9 @@ import           Text.Read
 --
 -- * The type can be pretty printed.
 --
--- With overlapping instances, you get this instance for free for any
--- type that is in 'Show', 'Read' and 'Typeable'. The 'String' instance is also
--- provided so quotes are not required.
+-- With overlapping instances, you get this instance for free for any type that
+-- is in 'Show', 'Read' and 'Typeable'. The 'String' instance is also provided
+-- so quotes are not required.
 class Parseable a where
   reader :: String -> Either String a
   shower :: a -> String
@@ -93,14 +93,16 @@ instance GEditable U1 where
     putStrLn "Editing () yields ()" -- not so true, can't pick ⊥
     return U1
 
--- the vty editor
-
-edit :: Parseable a => Maybe String -> Maybe String -> Maybe String -> a -> IO a
+edit :: (Parseable a) => Maybe Text -> Maybe Text -> Maybe Text -> a -> IO a
 edit datatype fieldName pError initialV = do
-  -- To stop VTY from catching GHCI's first enter keypress
+  let tshow = T.pack . show
+
+  -- To stop Brick from catching GHCI's first enter keypress
   threadDelay 1
 
-  isBottom <- newIORef False
+  isBottom <- newMVar False
+  let setIsBottom = putMVar isBottom
+  let getIsBottom = takeMVar isBottom
 
   e <- editWidget
   setEditText e (T.pack (shower initialV))
@@ -111,30 +113,33 @@ edit datatype fieldName pError initialV = do
 
   be <- bordered =<< boxFixed 40 1 e
 
-  c <- centered =<< ((plainText     $"Data type:   " <> maybe "unknown" T.pack datatype)
-                     <--> plainText ("Constructor: " <> maybe "unknown" T.pack fieldName)
-                     <--> plainText ("Field type:  " <> (T.pack (typeName initialV)))
-                     <--> plainText (maybe "" (T.pack . (++) "Parse error: ") pError)
-                     <--> (return be)
-                     <--> plainText "Push ESC to use ⊥."
-                     >>= withBoxSpacing 1 )
+  let orUnknown = fromMaybe "unknown"
+
+  c <- centered =<<
+    (plainText      ("Data type:   " <> orUnknown datatype)
+     <--> plainText ("Constructor: " <> orUnknown fieldName)
+     <--> plainText ("Field type:  " <> T.pack (typeName initialV))
+     <--> plainText (fromMaybe "" (("Parse error: " <>) <$> pError))
+     <--> return be
+     <--> plainText "Push ESC to use ⊥."
+     >>= withBoxSpacing 1)
 
   coll <- newCollection
   _ <- addToCollection coll c fg
 
   fg `onKeyPressed` \_ k _ ->
     case k of
-      KEsc -> shutdownUi >> writeIORef isBottom True >> return True
-      KEnter -> shutdownUi >> return True
-      _ -> return False
+      V.KEsc   -> shutdownUi >> setIsBottom True >> return True
+      V.KEnter -> shutdownUi >> return True
+      _        -> return False
 
   runUi coll defaultContext
 
-  isb <- readIORef isBottom
-  if isb then return undefined
-    else do
-      res <- T.unpack `fmap` getEditText e
-      case reader res of
-        Right x -> return x
-        Left er -> do
-          edit datatype fieldName (Just $ "Failed to parse: " ++ show res ++ "\n" ++ er) initialV
+  isb <- getIsBottom
+  if isb
+    then return undefined
+    else do res <- T.unpack `fmap` getEditText e
+            case reader res of
+              Right x -> return x
+              Left  e -> let msg = "Failed to parse: " <> tshow res <> "\n" <> e
+                         in edit datatype fieldName (Just msg) initialV
